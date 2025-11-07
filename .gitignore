@@ -1,0 +1,22 @@
+# Fichiers compilés
+*.o
+*.out
+daemon
+client
+build/
+
+# Base de données
+*.db
+*.sqlite
+*.sqlite3
+db/*.db
+
+# Fichiers temporaires
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Fichiers système
+.DS_Store

@@ -4,7 +4,7 @@
 #include <sqlite3.h>
 #include "database.h"
 
-// Fonction pour afficher les erreurs SQLite -- à move vers un fichier utils.c
+// Fonction pour afficher les erreurs SQLite
 void print_error(sqlite3 *db, const char *context) {
     fprintf(stderr, "❌ Erreur [%s]: %s\n", context, sqlite3_errmsg(db));
 }

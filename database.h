@@ -23,5 +23,6 @@ int db_update_task(sqlite3 *db, int id, const char *title,
                    const char *description, const char *status, int priority);
 int db_delete_task(sqlite3 *db, int id);
 int db_close(sqlite3 *db);
+void print_error(sqlite3 *db, const char *context);
 
 #endif

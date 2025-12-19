@@ -14,7 +14,7 @@
 
 #define SEM_UI_NAME "/task_client_ui_sem"
 
-// Helper function to connect to the daemon
+// Méthode helper pour se connecter au daemon
 int connect_to_daemon() {
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd == -1) {
@@ -36,7 +36,7 @@ int connect_to_daemon() {
     return fd;
 }
 
-// Command: list
+// Commande: list
 void cmd_list() {
     int fd = connect_to_daemon();
     if (fd == -1) return;
@@ -84,8 +84,8 @@ void cmd_list() {
     close(fd);
 }
 
-// Command: add
-void cmd_add(char *title, char *description, int priority) {
+// Commande: add
+void cmd_add(char *title, char *description, int priority, char *status) {
     int fd = connect_to_daemon();
     if (fd == -1) return;
 
@@ -97,7 +97,13 @@ void cmd_add(char *title, char *description, int priority) {
     if (description) {
         strncpy(req.task_data.description, description, sizeof(req.task_data.description) - 1);
     }
-    strcpy(req.task_data.status, "todo");
+
+    // Si un status est fourni (ex: import CSV) on l'utilise, sinon on met "todo"
+    if (status && strlen(status) > 0) {
+        strncpy(req.task_data.status, status, sizeof(req.task_data.status) - 1);
+    } else {
+        strcpy(req.task_data.status, "todo");
+    }
     req.task_data.priority = priority;
 
     if (send_message(fd, &req) == -1) {
@@ -116,7 +122,7 @@ void cmd_add(char *title, char *description, int priority) {
     close(fd);
 }
 
-// Command: delete
+// Commande: delete
 void cmd_delete(int id) {
     int fd = connect_to_daemon();
     if (fd == -1) return;
@@ -140,7 +146,7 @@ void cmd_delete(int id) {
     close(fd);
 }
 
-// Command: watch (Live Notifications)
+// Commande: watch (notifications en "direct")
 void cmd_watch() {
     int fd = connect_to_daemon();
     if (fd == -1) return;
@@ -157,7 +163,7 @@ void cmd_watch() {
         return;
     }
 
-    // Wait for acknowledgment
+    // Attente d'une réponse
     Message resp;
     if (recv_message(fd, &resp) != 0 || resp.status != RESP_SUCCESS) {
         printf("[ERROR] Failed to subscribe.\n");
@@ -188,7 +194,7 @@ void cmd_watch() {
     close(fd);
 }
 
-// Command: export (to CSV)
+// Commande: export (vers un CSV)
 void cmd_export(const char *filename) {
     int fd = connect_to_daemon();
     if (fd == -1) return;
@@ -199,7 +205,7 @@ void cmd_export(const char *filename) {
     send_message(fd, &req);
 
     Message resp;
-    recv_message(fd, &resp); // Get count
+    recv_message(fd, &resp);
 
     if (resp.status == RESP_SUCCESS) {
         FILE *fp = fopen(filename, "w");
@@ -228,7 +234,7 @@ void cmd_export(const char *filename) {
     close(fd);
 }
 
-// Command: import (from CSV)
+// Commande: importer (depuis un CSV)
 void cmd_import(const char *filename) {
     FILE *fp = fopen(filename, "r");
     if (!fp) {
@@ -243,9 +249,6 @@ void cmd_import(const char *filename) {
         return;
     }
 
-    // Détection automatique : Si le header commence par "id,", c'est le format export complet
-    int is_export_format = (strncmp(line, "id,", 3) == 0);
-
     int count = 0;
     while (fgets(line, sizeof(line), fp)) {
         // Suppression du saut de ligne final pour un parsing propre
@@ -258,25 +261,15 @@ void cmd_import(const char *filename) {
         // Premier token (soit ID, soit Title)
         char *token = strtok(line, ",");
 
-        if (is_export_format) {
-            // Format Export: id,title,description,status,priority
-            // Le premier token était l'ID, on l'ignore car la DB en générera un nouveau
-            
-            title = strtok(NULL, ",");       // Col 2: Title
-            desc = strtok(NULL, ",");        // Col 3: Description
-            strtok(NULL, ",");               // Col 4: Status (Ignoré, cmd_add force 'todo')
-            prio_str = strtok(NULL, ",");    // Col 5: Priority
-        } else {
-            // Format Simple: title,description,priority
-            title = token;                   // Col 1: Title
-            desc = strtok(NULL, ",");        // Col 2: Description
-            prio_str = strtok(NULL, ",");    // Col 3: Priority
-        }
+        title = strtok(NULL, ",");        // Col 2: Title
+        desc = strtok(NULL, ",");         // Col 3: Description
+        char *status = strtok(NULL, ","); // Col 4: Status
+        prio_str = strtok(NULL, ",");     // Col 5: Priority
 
         // Ajout de la tâche si les champs obligatoires sont présents
         if (title && desc) {
             int prio = prio_str ? atoi(prio_str) : 0;
-            cmd_add(title, desc, prio);
+            cmd_add(title, desc, prio, status);
             count++;
         }
     }
@@ -284,12 +277,12 @@ void cmd_import(const char *filename) {
     printf("[SUCCESS] Imported %d tasks from %s\n", count, filename);
 }
 
-// Command: update
+// Commande: update
 void cmd_update(int id, char *field, char *value) {
     int fd = connect_to_daemon();
     if (fd == -1) return;
 
-    // Étape 1 : Récupérer la tâche existante (READ)
+    Récupérer la tâche existante (READ)
     Message req;
     memset(&req, 0, sizeof(req));
     req.type = REQ_READ;
@@ -314,7 +307,7 @@ void cmd_update(int id, char *field, char *value) {
         return;
     }
 
-    // Étape 2 : Modifier le champ demandé localement
+    // Modifier le champ demandé localement
     // On travaille directement sur resp.task_data qui contient les infos actuelles
     if (strcmp(field, "title") == 0) {
         strncpy(resp.task_data.title, value, sizeof(resp.task_data.title) - 1);
@@ -334,7 +327,7 @@ void cmd_update(int id, char *field, char *value) {
         return;
     }
 
-    // Étape 3 : Renvoyer la tâche modifiée (UPDATE)
+    // Renvoyer la tâche modifiée (UPDATE)
     // On réutilise la structure de la réponse précédente pour la nouvelle requête
     req.type = REQ_UPDATE;
     req.task_data = resp.task_data; // Copie de la tâche modifiée
@@ -357,7 +350,7 @@ void cmd_update(int id, char *field, char *value) {
 
 // Command: interactive (Mode avec fork + sémaphore)
 void cmd_interactive() {
-    // 1. Création/Ouverture du sémaphore pour protéger stdout
+    // Création/Ouverture du sémaphore pour protéger stdout
     // Valeur initiale 1 (mutex)
     sem_t *ui_sem = sem_open(SEM_UI_NAME, O_CREAT, 0644, 1);
     if (ui_sem == SEM_FAILED) {
@@ -368,7 +361,7 @@ void cmd_interactive() {
     printf("[INFO] Starting Interactive Mode. Type 'exit' to quit.\n");
     printf("Commands: list, add <title> <desc> <prio>, delete <id>, update <id> <field> <val>\n");
 
-    // 2. Fork pour séparer écoute (notifications) et saisie
+    // Fork pour séparer écoute (notifications) et saisie
     pid_t pid = fork();
     if (pid == -1) {
         perror("fork");
@@ -392,7 +385,7 @@ void cmd_interactive() {
             
             // On efface la ligne courante (prompt) pour afficher la notif proprement
             printf("\r\033[K"); 
-            printf("🔔 [NOTIF] Task %d : Action %d\n", resp.task_data.id, resp.type);
+            printf("[NOTIF] Task %d : Action %d\n", resp.task_data.id, resp.type);
             
             // On réaffiche le prompt pour l'utilisateur
             printf("> "); 
@@ -432,9 +425,9 @@ void cmd_interactive() {
                 char *desc = strtok(NULL, " ");
                 char *prio_str = strtok(NULL, " ");
                 if (title && desc && prio_str) {
-                    cmd_add(title, desc, atoi(prio_str));
+                    cmd_add(title, desc, atoi(prio_str), "todo");
                 } else {
-                    printf("Usage: add <title> <desc> <prio>\n");
+                    printf("Usage: add <title> <desc> <prio> <status>\n");
                 }
             }
             else if (strcmp(cmd, "delete") == 0) {
@@ -496,7 +489,7 @@ int main(int argc, char *argv[]) {
         }
         char *desc = (argc >= 4) ? argv[3] : "";
         int prio = (argc >= 5) ? atoi(argv[4]) : 0;
-        cmd_add(argv[2], desc, prio);
+        cmd_add(argv[2], desc, prio, "todo");
     } 
 
     else if (strcmp(argv[1], "delete") == 0) {

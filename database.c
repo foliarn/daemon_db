@@ -6,7 +6,7 @@
 
 // Fonction pour afficher les erreurs SQLite
 void print_error(sqlite3 *db, const char *context) {
-    fprintf(stderr, "❌ Erreur [%s]: %s\n", context, sqlite3_errmsg(db));
+    fprintf(stderr, "Erreur [%s]: %s\n", context, sqlite3_errmsg(db));
 }
 
 // Init de la db (open)
@@ -39,7 +39,7 @@ int db_create_table(sqlite3 *db)
     int rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
     
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "❌ Erreur création table: %s\n", err_msg);
+        fprintf(stderr, "Erreur création table: %s\n", err_msg);
         sqlite3_free(err_msg);
         return -1;
     }
@@ -75,7 +75,7 @@ int db_create_task(sqlite3 *db, Task *task)
     }
     
     int last_id = sqlite3_last_insert_rowid(db);
-    printf("✅ Tâche insérée avec ID: %d\n", last_id);
+    printf("Tâche insérée avec ID: %d\n", last_id);
     
     sqlite3_finalize(stmt);
     
@@ -182,7 +182,7 @@ int db_list_tasks(sqlite3 *db, Task **tasks, int *count)
     // ===== Étape 2 : Allouer le tableau =====
     *tasks = (Task *)malloc(sizeof(Task) * (*count));
     if (*tasks == NULL) {
-        fprintf(stderr, "❌ Erreur: allocation mémoire échouée\n");
+        fprintf(stderr, "Erreur: allocation mémoire échouée\n");
         *count = 0;
         return -1;
     }
@@ -356,9 +356,9 @@ int db_update_task(sqlite3 *db, int id, const char *title, const char *descripti
     
     int changes = sqlite3_changes(db);
     if (changes > 0) {
-        printf("✅ Tâche mise à jour (%d ligne(s) modifiée(s))\n", changes);
+        printf("Tâche mise à jour (%d ligne(s) modifiée(s))\n", changes);
     } else {
-        fprintf(stderr, "⚠️  Aucune tâche modifiée (ID inexistant ?)\n");
+        fprintf(stderr, "Aucune tâche modifiée (ID inexistant ?)\n");
         sqlite3_finalize(stmt);
         return -2;  // ID non trouvé
     }

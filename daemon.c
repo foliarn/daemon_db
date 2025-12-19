@@ -12,26 +12,26 @@
 #include "database.h"
 #include "protocol.h"
 
-// Global variables
+// Variables globales
 sqlite3 *db = NULL;
 int server_socket = -1;
 volatile sig_atomic_t running = 1;
 
-// Mutex to protect database access
+// Mutex pour protéger l'accès à la db
 pthread_mutex_t db_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Subscription management
+// management souscription
 int subscribers[MAX_CLIENTS];
 pthread_mutex_t sub_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Initialize subscribers list
+// init list subscriber
 void init_subscribers() {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         subscribers[i] = -1;
     }
 }
 
-// Add a subscriber
+// Ajouter un subscriber
 void add_subscriber(int fd) {
     pthread_mutex_lock(&sub_mutex);
     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -44,21 +44,19 @@ void add_subscriber(int fd) {
     pthread_mutex_unlock(&sub_mutex);
 }
 
-// Remove a subscriber
+// Enlever un subscriber
 void remove_subscriber(int fd) {
     pthread_mutex_lock(&sub_mutex);
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (subscribers[i] == fd) {
             subscribers[i] = -1;
-            // Only log if it was actually found to avoid noise on disconnect
-            // printf("[INFO] Client %d unsubscribed.\n", fd);
             break;
         }
     }
     pthread_mutex_unlock(&sub_mutex);
 }
 
-// Broadcast a message to all subscribers
+// Broadcast un message à tous les subscribers
 void broadcast_change(RequestType type, Task *task, int task_id) {
     pthread_mutex_lock(&sub_mutex);
     
@@ -76,8 +74,6 @@ void broadcast_change(RequestType type, Task *task, int task_id) {
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (subscribers[i] != -1) {
-            // Send the notification
-            // We ignore errors here (broken pipes will be handled by the client thread)
             send(subscribers[i], &msg, sizeof(Message), MSG_NOSIGNAL);
         }
     }
@@ -92,7 +88,7 @@ void handle_signal(int sig) {
     running = 0;
 }
 
-// Cleanup function
+// Méthode de nettoyage "propre"
 void cleanup() {
     if (server_socket != -1) {
         close(server_socket);
@@ -107,7 +103,7 @@ void cleanup() {
     pthread_mutex_destroy(&sub_mutex);
 }
 
-// Function to handle client logic in a separate thread
+// Gérer la logique du client dans un autre thread
 void *client_handler(void *arg) {
     int client_fd = *((int *)arg);
     free(arg); 
@@ -133,7 +129,6 @@ void *client_handler(void *arg) {
                     response.task_data.id = id;
                     printf("[INFO] Task created with ID: %d\n", id);
                     
-                    // Notify subscribers
                     broadcast_change(REQ_CREATE, &msg.task_data, id);
                 } else {
                     response.status = RESP_ERROR;
@@ -191,7 +186,6 @@ void *client_handler(void *arg) {
                     response.status = RESP_SUCCESS;
                     printf("[INFO] Task %d updated.\n", msg.task_data.id);
                     
-                    // Fetch the updated task to send complete info to subscribers
                     Task updated_task;
                     db_get_task(db, msg.task_data.id, &updated_task);
                     broadcast_change(REQ_UPDATE, &updated_task, msg.task_data.id);
@@ -242,7 +236,7 @@ void *client_handler(void *arg) {
         pthread_mutex_unlock(&db_mutex);
     }
 
-    // Cleanup on disconnect
+    // Cleanup quand on se déconnecte
     remove_subscriber(client_fd);
     close(client_fd);
     printf("[INFO] Client %d disconnected.\n", client_fd);
@@ -324,7 +318,6 @@ int main() {
             continue;
         }
 
-        // printf("[INFO] New client connected.\n");
         pthread_t thread_id;
         if (pthread_create(&thread_id, NULL, client_handler, client_fd_ptr) != 0) {
             perror("pthread_create");

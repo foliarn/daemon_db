@@ -384,27 +384,25 @@ int db_delete_task(sqlite3 *db, int task_id) {
     // Lier l'ID
     sqlite3_bind_int(stmt, 1, task_id);
     
-    // Exécuter
+    // Executer
     rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
-        print_error(db, "execute delete");
+        if (rc != SQLITE_DONE) {
+            print_error(db, "execute delete");
+            sqlite3_finalize(stmt);
+            return -1;
+        }
+        
+        int changes = sqlite3_changes(db);
         sqlite3_finalize(stmt);
-        return -1;
+
+        if (changes > 0) {
+            printf("Task deleted (%d row(s) affected)\n", changes);
+            return 0; // Succès réel
+        } else {
+            printf("No task deleted (ID not found)\n");
+            return -2; // Code pour "Non trouvé"
+        }
     }
-    
-    // Vérifier combien de lignes ont été supprimées
-    int changes = sqlite3_changes(db);
-    if (changes > 0) {
-        printf("Tâche supprimée (%d ligne(s) supprimée(s))\n", changes);
-    } else {
-        printf("Aucune tâche supprimée (ID inexistant ?)\n");
-    }
-    
-    // Nettoyer
-    sqlite3_finalize(stmt);
-    
-    return 0;
-}
 
 // Ferme la db
 int db_close(sqlite3 *db)

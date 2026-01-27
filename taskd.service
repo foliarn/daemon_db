@@ -1,0 +1,19 @@
+[Unit]
+Description= daemon R3.5
+After=network.target
+
+[Service]
+Type=simple
+
+ExecStart=/home/flori/Git/daemon_db/daemon
+
+WorkingDirectory=/home/flori/Git/daemon_db
+
+Restart=on-failure
+
+Environment=LC_ALL=C
+
+UMask=000
+
+[Install]
+WantedBy=multi-user.target

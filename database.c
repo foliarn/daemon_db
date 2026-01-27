@@ -6,7 +6,7 @@
 
 // Fonction pour afficher les erreurs SQLite
 void print_error(sqlite3 *db, const char *context) {
-    fprintf(stderr, "❌ Erreur [%s]: %s\n", context, sqlite3_errmsg(db));
+    fprintf(stderr, "Erreur [%s]: %s\n", context, sqlite3_errmsg(db));
 }
 
 // Init de la db (open)
@@ -39,7 +39,7 @@ int db_create_table(sqlite3 *db)
     int rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
     
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "❌ Erreur création table: %s\n", err_msg);
+        fprintf(stderr, "Erreur création table: %s\n", err_msg);
         sqlite3_free(err_msg);
         return -1;
     }
@@ -75,7 +75,7 @@ int db_create_task(sqlite3 *db, Task *task)
     }
     
     int last_id = sqlite3_last_insert_rowid(db);
-    printf("✅ Tâche insérée avec ID: %d\n", last_id);
+    printf("Tâche insérée avec ID: %d\n", last_id);
     
     sqlite3_finalize(stmt);
     
@@ -182,7 +182,7 @@ int db_list_tasks(sqlite3 *db, Task **tasks, int *count)
     // ===== Étape 2 : Allouer le tableau =====
     *tasks = (Task *)malloc(sizeof(Task) * (*count));
     if (*tasks == NULL) {
-        fprintf(stderr, "❌ Erreur: allocation mémoire échouée\n");
+        fprintf(stderr, "Erreur: allocation mémoire échouée\n");
         *count = 0;
         return -1;
     }
@@ -356,9 +356,9 @@ int db_update_task(sqlite3 *db, int id, const char *title, const char *descripti
     
     int changes = sqlite3_changes(db);
     if (changes > 0) {
-        printf("✅ Tâche mise à jour (%d ligne(s) modifiée(s))\n", changes);
+        printf("Tâche mise à jour (%d ligne(s) modifiée(s))\n", changes);
     } else {
-        fprintf(stderr, "⚠️  Aucune tâche modifiée (ID inexistant ?)\n");
+        fprintf(stderr, "Aucune tâche modifiée (ID inexistant ?)\n");
         sqlite3_finalize(stmt);
         return -2;  // ID non trouvé
     }
@@ -384,27 +384,25 @@ int db_delete_task(sqlite3 *db, int task_id) {
     // Lier l'ID
     sqlite3_bind_int(stmt, 1, task_id);
     
-    // Exécuter
+    // Executer
     rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
-        print_error(db, "execute delete");
+        if (rc != SQLITE_DONE) {
+            print_error(db, "execute delete");
+            sqlite3_finalize(stmt);
+            return -1;
+        }
+        
+        int changes = sqlite3_changes(db);
         sqlite3_finalize(stmt);
-        return -1;
+
+        if (changes > 0) {
+            printf("Task deleted (%d row(s) affected)\n", changes);
+            return 0; // Succès réel
+        } else {
+            printf("No task deleted (ID not found)\n");
+            return -2; // Code pour "Non trouvé"
+        }
     }
-    
-    // Vérifier combien de lignes ont été supprimées
-    int changes = sqlite3_changes(db);
-    if (changes > 0) {
-        printf("Tâche supprimée (%d ligne(s) supprimée(s))\n", changes);
-    } else {
-        printf("Aucune tâche supprimée (ID inexistant ?)\n");
-    }
-    
-    // Nettoyer
-    sqlite3_finalize(stmt);
-    
-    return 0;
-}
 
 // Ferme la db
 int db_close(sqlite3 *db)
